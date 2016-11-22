@@ -6,6 +6,7 @@ local ADDON = {}
 ADDON.currentDebuffs = {}
 ADDON.Players = {}
 ADDON.Targets = {}
+ADDON.namePlateCache = {}
 
 ADDON.Icons = {
   ["DRUID"] = "Interface\\AddOns\\CustomNameplates\\Class\\ClassIcon_Druid",
@@ -110,6 +111,8 @@ function ADDON.targetIndicatorHide(namePlate)
   namePlate.targetIndicator:Hide()
 end
 
+TEST_PLATE = nil
+
 function ADDON.CustomNameplates_OnUpdate(elapsed)
   CustomNameplates.ticker = CustomNameplates.ticker + elapsed
   if not (CustomNameplates.ticker > ADDON.genSettings.refreshRate) then return end  -- cap at 60fps by default
@@ -117,6 +120,13 @@ function ADDON.CustomNameplates_OnUpdate(elapsed)
   local frames = { WorldFrame:GetChildren() }
   for _, namePlate in ipairs(frames) do
     if ADDON.IsNamePlateFrame(namePlate) then
+      if (ADDON.namePlateCache[namePlate] == nil) then
+        ADDON.Print("Nameplate is not in cache. Adding")
+        ADDON.namePlateCache[namePlate] = true
+      --else
+        --ADDON.Print("Nameplate is in cache")
+      end
+
       local HealthBar = namePlate:GetChildren()
       local Border, Glow, Name, Level, Boss, RaidTargetIcon = namePlate:GetRegions()
 
@@ -159,20 +169,22 @@ function ADDON.CustomNameplates_OnUpdate(elapsed)
 
       --DebuffIcons on TargetPlates 
       for j=1,16,1 do
-        if namePlate.debuffIcons[j] == nil and j<=8 then --first row
-          namePlate.debuffIcons[j] = namePlate:CreateTexture(nil, "BORDER")
-          namePlate.debuffIcons[j]:SetTexture(0,0,0,0)
-          namePlate.debuffIcons[j]:ClearAllPoints()
-          namePlate.debuffIcons[j]:SetPoint(ADDON.debufficon.point, HealthBar, ADDON.debufficon.anchorpoint, (j-1) * ADDON.debufficon.size, ADDON.debufficon.row1yoffs)
+        if (namePlate.debuffIcons[j] == nil) then
+          namePlate.debuffIcons[j] = CreateFrame("Frame", nil, namePlate)
           namePlate.debuffIcons[j]:SetWidth(ADDON.debufficon.size) 
-          namePlate.debuffIcons[j]:SetHeight(ADDON.debufficon.size) 
-        elseif namePlate.debuffIcons[j] == nil and j>8 then --second row
-          namePlate.debuffIcons[j] = namePlate:CreateTexture(nil, "BORDER")
-          namePlate.debuffIcons[j]:SetTexture(0,0,0,0)
-          namePlate.debuffIcons[j]:ClearAllPoints()
-          namePlate.debuffIcons[j]:SetPoint(ADDON.debufficon.point, HealthBar, ADDON.debufficon.anchorpoint, (j-9) * ADDON.debufficon.size, ADDON.debufficon.row2yoffs)
-          namePlate.debuffIcons[j]:SetWidth(ADDON.debufficon.size)
           namePlate.debuffIcons[j]:SetHeight(ADDON.debufficon.size)
+
+          if j<=8 then --first row
+            namePlate.debuffIcons[j]:SetPoint(ADDON.debufficon.point, namePlate, ADDON.debufficon.anchorpoint, 34 + (j-1) * ADDON.debufficon.size, -8)
+          elseif j>8 then --second row
+            --namePlate.debuffIcons[j] = namePlate:CreateTexture(nil, "BORDER")
+            namePlate.debuffIcons[j]:SetPoint(ADDON.debufficon.point, namePlate, ADDON.debufficon.anchorpoint, (j-9) * ADDON.debufficon.size, ADDON.debufficon.row2yoffs)
+          end
+
+          namePlate.debuffIcons[j].texture = namePlate.debuffIcons[j]:CreateTexture(nil, "ARTWORK")
+          namePlate.debuffIcons[j].texture:SetAllPoints(namePlate.debuffIcons[j])
+
+          namePlate.debuffIcons[j]:Hide()
         end
       end
       
@@ -184,20 +196,26 @@ function ADDON.CustomNameplates_OnUpdate(elapsed)
           local j = 1
           local k = 1
           for j, e in ipairs(ADDON.currentDebuffs) do
-            namePlate.debuffIcons[j]:SetTexture(ADDON.currentDebuffs[j])
-            namePlate.debuffIcons[j]:SetTexCoord(.078, .92, .079, .937)
-            namePlate.debuffIcons[j]:SetAlpha(0.9)
+            --ADDON.Print("Setting debuff " .. j .. " texture " .. ADDON.currentDebuffs[j] .. " and showing frame")
+            TEST_PLATE = namePlate
+            namePlate.debuffIcons[j].texture:SetTexture(ADDON.currentDebuffs[j])
+            namePlate.debuffIcons[j].texture:SetTexCoord(.078, .92, .079, .937)
+            namePlate.debuffIcons[j].texture:SetAlpha(0.9)
+            namePlate.debuffIcons[j]:Show()
+
+            --CooldownFrame_SetTimer(namePlate.debuffIcons[j], 16, 16, 1)
+
             k = k + 1
           end
           for j=k,16,1 do
-            namePlate.debuffIcons[j]:SetTexture(nil)
+            namePlate.debuffIcons[j].texture:SetTexture(nil)
           end
         end
       else
         ADDON.targetNormalsize(namePlate)
         ADDON.targetIndicatorHide(namePlate)
         for j=1,16,1 do
-          namePlate.debuffIcons[j]:SetTexture(nil)
+          namePlate.debuffIcons[j].texture:SetTexture(nil)
         end
       end
       
