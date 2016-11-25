@@ -235,9 +235,7 @@ function ADDON.CustomNameplates_OnUpdate(elapsed)
                 namePlate.debuffIcons[j].cdradial:SetTimers(debuff.starttime, debuff.endtime)
                 namePlate.debuffIcons[j].cdradial:Show()
 
-                -- Don't break, multiple debuffs may have the same icon - we just set the timer
-                -- of both to the most recent application
-                --break
+                break
               end
             end
 
