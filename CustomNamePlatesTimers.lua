@@ -295,6 +295,12 @@ local SPELLINFO_ROOTS_SNARES = {
 
 -- The following is custom spell information
 
+--
+
+-- Upvalue
+local string_len, string_find, ipairs, table_insert = 
+  string.len, string.find, ipairs, table.insert
+
 local CNPDebuff = CreateFrame("Frame", "CNPDebuff", UIParent)
 
 local debuffList = {}
@@ -363,12 +369,12 @@ end
 
 local function addTrackedDebuff(unitName, spellName)
     if (SPELLINFO_BUFFS_TO_TRACK[spellName] == nil) then
-        Print(spellName .. " is not trackable")
+        --Print(spellName .. " is not trackable")
         return
     end
 
     local index, existing = getExistingBuff(unitName, spellName)
-    Print(index)
+    --Print(index)
     local drmod = 1
     if (existing ~= nil) then
         drmod = getNewDebuffDRModifier(existing)
@@ -392,23 +398,25 @@ local function addTrackedDebuff(unitName, spellName)
         debuffList[unitName] = {}
     end
 
-    table.remove(debuffList[unitName], index)
+    if (index ~= nil) then
+        table.remove(debuffList[unitName], index)
+    end
 
-    table.insert(debuffList[unitName], debuff)
+    table_insert(debuffList[unitName], debuff)
 end
 
 local function parseDebuffEvent()
     local otherAfflictedRegex = "(.+) is afflicted by (.+)."
-    local otherAfflicted = string.find(arg1, otherAfflictedRegex)
+    local otherAfflicted = string_find(arg1, otherAfflictedRegex)
 
-    Print(otherAfflicted)
+    --Print(otherAfflicted)
 
     if (otherAfflicted and otherAfflictedRegex) then
         local afflictedUnitName = string.gsub(arg1, otherAfflictedRegex, '%1')
         local afflictedSpellName = string.gsub(arg1, otherAfflictedRegex, '%2')
 
-        Print(afflictedUnitName)
-        Print(afflictedSpellName)
+        --Print(afflictedUnitName)
+        --Print(afflictedSpellName)
 
         addTrackedDebuff(afflictedUnitName, afflictedSpellName)
     end
@@ -438,4 +446,66 @@ function CNPCleanUpExpiredDebuffs()
             debuffList[k] = nil
         end
     end
+end
+
+-- Yoink the cooldown code from 
+-- https://raw.githubusercontent.com/zetone/enemyFrames/master/UIElements/customCooldown.lua
+local OnUpdateAnimation = function()
+  if GetTime() < this.timeEnd then
+    local finished = (GetTime() - this.timeStart) / (this.timeEnd - this.timeStart)
+    if  finished < 1.0  then
+      local time = finished * 1000;
+      this:SetSequenceTime(0, time)
+      return
+    end
+  else
+    this:Hide()
+  end
+end
+-------------------------------------------------------------------------------
+local OnUpdateAnimationReverse = function()
+  if GetTime() < this.timeEnd then
+    local finished = 1 - ((GetTime() - this.timeStart) / (this.timeEnd - this.timeStart))
+    if  finished > 0  then
+      local time = finished * 1000;
+      this:SetSequenceTime(0, time)
+      return
+    end
+  else
+    this:Hide()
+  end
+end
+-------------------------------------------------------------------------------
+CNPCreateCooldown = function(parentFrame, scale, rev)
+  if not parentFrame then Print(parentFrame:GetName()..' error:|r This frame does not exist!')  return end
+  
+  if not parentFrame:IsObjectType('Frame') then
+    Print(parentFrame:GetName()..' error:|r The entered object \''..parentFrame'\' is not a frame!')
+    return
+  end
+  
+  local cd = CreateFrame('Model', parentFrame:GetName()..'Cooldown', parentFrame)--, 'CooldownFrameTemplate')
+  cd:SetModel([[Interface\Cooldown\UI-Cooldown-Indicator.mdx]])
+  
+  cd:SetAllPoints()
+  cd:SetScale(scale)
+
+  cd.timeStart = 0
+  cd.timeEnd = 0
+  
+  function cd:SetTimers(s, e)
+    self.timeStart = s
+    self.timeEnd = e
+  end
+  
+  cd.reverse = rev
+  cd:SetScript('OnUpdateModel', function()
+    if this.reverse then 
+      OnUpdateAnimationReverse()
+    else
+      OnUpdateAnimation()
+    end
+  end)
+  --cd:SetScript('OnAnimFinished', CooldownFrame_OnAnimFinished)
+  return cd 
 end

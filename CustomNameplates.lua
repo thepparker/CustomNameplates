@@ -124,7 +124,7 @@ function ADDON.CustomNameplates_OnUpdate(elapsed)
   for _, namePlate in ipairs(frames) do
     if ADDON.IsNamePlateFrame(namePlate) then
       if (ADDON.namePlateCache[namePlate] == nil) then
-        ADDON.Print("Nameplate is not in cache. Adding")
+        --ADDON.Print("Nameplate is not in cache. Adding")
         ADDON.namePlateCache[namePlate] = true
       end
 
@@ -189,9 +189,9 @@ function ADDON.CustomNameplates_OnUpdate(elapsed)
           namePlate.debuffIcons[j].cd:SetWidth(ADDON.debufficon.size)
           namePlate.debuffIcons[j].cd:SetHeight(ADDON.debufficon.size)
           namePlate.debuffIcons[j].cd:SetFrameLevel(1)
-          namePlate.debuffIcons[j].cd:SetPoint("CENTER", namePlate.debuffIcons[j], 0, -1)
+          namePlate.debuffIcons[j].cd:SetPoint("CENTER", namePlate.debuffIcons[j], 0, 0)
 
-          namePlate.debuffIcons[j].cdradial = CNPCreateCooldown(namePlate.debuffIcons[j].cd, 0.3, true)
+          namePlate.debuffIcons[j].cdradial = CNPCreateCooldown(namePlate.debuffIcons[j].cd, 0.28 * ADDON.debufficon.size/12, true)
           namePlate.debuffIcons[j].cdradial:SetAlpha(1)
           namePlate.debuffIcons[j].cdradial:Hide()
 
@@ -212,10 +212,13 @@ function ADDON.CustomNameplates_OnUpdate(elapsed)
           -- for both.
 
           local trackedDebuffs = CNPGetTrackedUnitDebuffs(UnitName("target"))
+          local debuffIsTracked = false
+          local texture = nil
 
           for j, e in ipairs(ADDON.currentDebuffs) do
+            debuffIsTracked = false
             --ADDON.Print("Setting debuff " .. j .. " texture " .. ADDON.currentDebuffs[j] .. " and showing frame")
-            local texture = ADDON.currentDebuffs[j]
+            texture = ADDON.currentDebuffs[j]
             namePlate.debuffIcons[j].texture:SetTexture(texture)
             namePlate.debuffIcons[j].texture:SetTexCoord(.078, .92, .079, .937)
             namePlate.debuffIcons[j].texture:SetAlpha(0.9)
@@ -224,13 +227,23 @@ function ADDON.CustomNameplates_OnUpdate(elapsed)
             for _, debuff in ipairs(trackedDebuffs) do
               --ADDON.Print(debuff)
               if texture == debuff.texture then
+                debuffIsTracked = true
                 --ADDON.Print("debuff " .. debuff.texture .. " is tracked! Curr texture: " .. texture)
-                ADDON.Print("Start: " .. debuff.starttime .. ", end time: " .. debuff.endtime)
+                --ADDON.Print("Start: " .. debuff.starttime .. ", end time: " .. debuff.endtime)
 
                 namePlate.debuffIcons[j].cd:Show()
                 namePlate.debuffIcons[j].cdradial:SetTimers(debuff.starttime, debuff.endtime)
                 namePlate.debuffIcons[j].cdradial:Show()
+
+                -- Don't break, multiple debuffs may have the same icon - we just set the timer
+                -- of both to the most recent application
+                --break
               end
+            end
+
+            if (not debuffIsTracked) then
+              namePlate.debuffIcons[j].cd:Hide()
+              namePlate.debuffIcons[j].cdradial:Hide()
             end
 
             k = k + 1
@@ -436,65 +449,3 @@ end
 SlashCmdList["CUSTOMNAMEPLATES"] = SlashCmdList["CNP"]
 SLASH_CNP1 = "/cnp"
 SLASH_CUSTOMNAMEPLATES1 = "/customnameplates"
-
--- Yoink the cooldown code from 
--- https://raw.githubusercontent.com/zetone/enemyFrames/master/UIElements/customCooldown.lua
-local OnUpdateAnimation = function()
-  if GetTime() < this.timeEnd then
-    local finished = (GetTime() - this.timeStart) / (this.timeEnd - this.timeStart)
-    if  finished < 1.0  then
-      local time = finished * 1000;
-      this:SetSequenceTime(0, time)
-      return
-    end
-  else
-    this:Hide()
-  end
-end
--------------------------------------------------------------------------------
-local OnUpdateAnimationReverse = function()
-  if GetTime() < this.timeEnd then
-    local finished = 1 - ((GetTime() - this.timeStart) / (this.timeEnd - this.timeStart))
-    if  finished > 0  then
-      local time = finished * 1000;
-      this:SetSequenceTime(0, time)
-      return
-    end
-  else
-    this:Hide()
-  end
-end
--------------------------------------------------------------------------------
-CNPCreateCooldown = function(parentFrame, scale, rev)
-  if not parentFrame then print(parentFrame:GetName()..' error:|r This frame does not exist!')  return end
-  
-  if not parentFrame:IsObjectType('Frame') then
-    print(parentFrame:GetName()..' error:|r The entered object \''..parentFrame'\' is not a frame!')
-    return
-  end
-  
-  local cd = CreateFrame('Model', parentFrame:GetName()..'Cooldown', parentFrame)--, 'CooldownFrameTemplate')
-  cd:SetModel([[Interface\Cooldown\UI-Cooldown-Indicator.mdx]])
-  
-  cd:SetAllPoints()
-  cd:SetScale(scale)
-
-  cd.timeStart = 0
-  cd.timeEnd = 0
-  
-  function cd:SetTimers(s, e)
-    self.timeStart = s
-    self.timeEnd = e
-  end
-  
-  cd.reverse = rev
-  cd:SetScript('OnUpdateModel', function()
-    if this.reverse then 
-      OnUpdateAnimationReverse()
-    else
-      OnUpdateAnimation()
-    end
-  end)
-  --cd:SetScript('OnAnimFinished', CooldownFrame_OnAnimFinished)
-  return cd 
-end
